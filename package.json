@@ -1,0 +1,29 @@
+{
+  "name": "seaora-la-perle",
+  "version": "2.0.0",
+  "private": true,
+  "description": "SEAORA — La Perle. An immersive underwater memory experience: React + Vite, Node/Express, PostgreSQL via Prisma.",
+  "type": "module",
+  "engines": {
+    "node": ">=18.18"
+  },
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server run start",
+    "db:generate": "prisma generate --schema server/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema server/prisma/schema.prisma",
+    "db:deploy": "prisma migrate deploy --schema server/prisma/schema.prisma",
+    "db:reset": "prisma migrate reset --schema server/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema server/prisma/schema.prisma",
+    "db:seed": "node server/prisma/seed.js",
+    "setup": "npm run install:all && npm run db:migrate && npm run db:seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "prisma": "^5.22.0"
+  }
+}

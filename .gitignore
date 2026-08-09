@@ -1,0 +1,19 @@
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# uploaded media — the folders and their .gitkeep stay, the files do not
+uploads/**/*
+!uploads/**/.gitkeep
+
+# prisma
+server/prisma/assets/*
+!server/prisma/assets/.gitkeep
+!server/prisma/assets/README.md
