@@ -1,0 +1,157 @@
+/* ============================================================
+   The water: caustics, rays, bubbles, vignette — and the performance tiers
+   that decide how much of it a given device is asked to carry.
+   ============================================================ */
+
+.fx { position: fixed; inset: 0; pointer-events: none; }
+
+.caustics {
+  mix-blend-mode: screen;
+  opacity: .42;
+  background:
+    radial-gradient(40% 28% at 24% 16%, rgba(150, 228, 255, .22), transparent 70%),
+    radial-gradient(48% 30% at 80% 28%, rgba(120, 205, 240, .16), transparent 72%),
+    radial-gradient(54% 36% at 50% 88%, rgba(70, 170, 205, .14), transparent 75%);
+  animation: drift 24s ease-in-out infinite alternate;
+}
+
+.rays {
+  mix-blend-mode: screen;
+  opacity: .4;
+  background: conic-gradient(from 198deg at 52% -10%,
+    transparent 0deg, rgba(200, 245, 255, .14) 12deg, transparent 24deg,
+    transparent 322deg, rgba(200, 245, 255, .1) 340deg, transparent 360deg);
+  animation: sway 18s ease-in-out infinite alternate;
+}
+
+.vignette {
+  background: radial-gradient(120% 100% at 50% 42%, transparent 52%, rgba(0, 6, 12, .55) 100%);
+}
+
+.bubbles { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+.bubbles i {
+  position: absolute;
+  bottom: -40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%,
+    rgba(255, 255, 255, .85), rgba(255, 255, 255, .16) 44%, rgba(255, 255, 255, .03) 72%);
+  box-shadow: 0 0 6px rgba(255, 255, 255, .22);
+  animation: rise linear infinite;
+  opacity: 0;
+}
+
+@keyframes drift {
+  from { transform: translate3d(-3%, -1%, 0) scale(1.05); }
+  to { transform: translate3d(4%, 2%, 0) scale(1.13); }
+}
+@keyframes sway {
+  from { transform: translateX(-2%) rotate(-1deg); }
+  to { transform: translateX(3%) rotate(1.4deg); }
+}
+@keyframes rise {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  10% { opacity: .7; }
+  90% { opacity: .45; }
+  100% { transform: translateY(-112vh) translateX(var(--dx, 12px)); opacity: 0; }
+}
+
+.scene-host { position: fixed; inset: 0; }
+.scene-canvas { position: fixed; inset: 0; display: block; touch-action: none; width: 100%; height: 100%; }
+
+/* the wordmark and the one line of guidance */
+.ui {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  display: flex; flex-direction: column;
+  justify-content: space-between; align-items: center;
+  padding: clamp(20px, 4vh, 46px) 20px;
+}
+.title {
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic; font-weight: 500;
+  font-size: clamp(28px, 5.4vw, 52px);
+  letter-spacing: .16em;
+  margin: 0;
+  color: #fbf3e6;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, .3), 0 0 26px rgba(180, 230, 255, .18);
+}
+.title .small {
+  display: block;
+  font-style: normal;
+  font-family: var(--sans);
+  font-weight: 300;
+  letter-spacing: .5em;
+  font-size: clamp(9px, 1.5vw, 12px);
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: .55em;
+  padding-left: .5em;
+  text-shadow: none;
+}
+.hint {
+  font-weight: 300;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  font-size: clamp(10px, 1.6vw, 12px);
+  color: rgba(255, 255, 255, .92);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+  text-align: center;
+  transition: opacity .5s ease;
+}
+.hint b { color: #fff; font-weight: 500; }
+.hint.away { opacity: 0; }
+
+/* ---- performance tiers (classes set from JS by usePerformanceTier) ----
+
+   Three things in this atmosphere are expensive, and none of them for the
+   reason they look expensive:
+
+   `mix-blend-mode` forces the browser to keep the backdrop as a separate
+   texture and blend it per frame. On a phone GPU that is the single costliest
+   line in this stylesheet — far more than the gradients it is blending. Mid
+   tier keeps the look with plain opacity instead.
+
+   `will-change:transform` promotes an element to its own layer forever. Worth
+   it for a layer that genuinely animates every frame; pure cost for one whose
+   animation has been switched off, which is why it is scoped.
+
+   `backdrop-filter` blurs everything behind the gate. Already dropped on the
+   low tier; also dropped on any phone, because the gate sits over a moving 3D
+   canvas and that blur is recomputed every single frame. */
+.caustics, .rays { will-change: transform; }
+
+body.perf-mid .rays { opacity: .3; mix-blend-mode: normal; animation-duration: 26s; }
+body.perf-mid .caustics { opacity: .34; mix-blend-mode: normal; animation-duration: 34s; }
+
+body.perf-low .rays { display: none; }
+body.perf-low .caustics { animation: none; opacity: .22; mix-blend-mode: normal; will-change: auto; }
+body.perf-low .bubbles { display: none; }
+
+/* the gate sits over a live canvas — blurring it costs a full-screen
+   read-back every frame the shell is turning */
+body.is-mobile .gate {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(4, 11, 18, .74);
+}
+
+/* While the deck is up it covers the screen completely, yet the canvas and the
+   animated water layers underneath keep being composited every frame and
+   compete with scrolling. Taking them out of the tree is the other half of the
+   fix, next to parking the render loop. */
+body.in-gallery .fx,
+body.in-gallery .bubbles,
+body.in-gallery .scene-host,
+body.in-gallery .ui { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .caustics, .rays, .bubbles i { animation: none !important; }
+}
+
+@media (max-width: 560px) {
+  .ui { padding: max(16px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom)); }
+}
+@media (max-height: 560px) {
+  .title .small { margin-top: .35em; }
+}

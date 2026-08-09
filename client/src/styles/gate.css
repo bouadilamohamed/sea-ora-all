@@ -1,0 +1,183 @@
+/* ============================================================
+   The passcode gate, the loader, the fallback, and the burst of light that
+   lands with the reveal.
+   ============================================================ */
+
+.gate {
+  position: fixed; inset: 0; z-index: 6;
+  display: grid; place-items: center;
+  padding: 24px;
+  background: rgba(4, 11, 18, .5);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  opacity: 0; pointer-events: none;
+  transition: opacity .45s ease;
+}
+.gate.show { opacity: 1; pointer-events: auto; }
+.gate.shake .gate-card { animation: shake .45s; }
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-8px); }
+  40%, 60% { transform: translateX(8px); }
+}
+
+.gate-card {
+  width: min(360px, 92vw);
+  padding: 34px 30px 28px;
+  border-radius: 22px;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(28, 52, 66, .72), rgba(10, 24, 34, .82));
+  border: 1px solid rgba(190, 230, 255, .18);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .12);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+
+.gate-pearl {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  margin-bottom: 8px;
+  background:
+    radial-gradient(34% 30% at 33% 27%, #fff 0%, rgba(255, 255, 255, 0) 46%),
+    radial-gradient(95% 95% at 38% 34%, #fdf7f4 0%, #e9dfe6 55%, #b9a9b4 95%);
+  box-shadow:
+    inset -4px -5px 11px rgba(120, 104, 118, .45),
+    inset 3px 4px 9px rgba(255, 255, 255, .7),
+    0 6px 18px rgba(0, 0, 0, .4),
+    0 0 26px rgba(200, 232, 255, .35);
+}
+
+.gate-card h2 {
+  font-family: var(--serif);
+  font-style: italic; font-weight: 500;
+  font-size: 27px; letter-spacing: .06em;
+  margin: 0; color: #fbf3e6;
+}
+.gate-card p {
+  margin: .2em 0 1em;
+  font-weight: 300; font-size: 13px;
+  letter-spacing: .04em; color: var(--muted);
+}
+
+.gate-card input {
+  width: 100%;
+  text-align: center;
+  font-family: var(--sans);
+  font-size: 18px; letter-spacing: .3em;
+  color: #eef7f8;
+  background: rgba(0, 0, 0, .28);
+  border: 1px solid rgba(190, 230, 255, .22);
+  border-radius: 13px;
+  padding: 13px 14px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.gate-card input::placeholder { color: rgba(238, 247, 248, .35); letter-spacing: .2em; }
+.gate-card input:focus {
+  border-color: rgba(190, 230, 255, .6);
+  box-shadow: 0 0 0 3px rgba(150, 225, 255, .16);
+}
+
+.gate-ref { margin-bottom: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 400; }
+
+.gate-card button {
+  margin-top: 14px;
+  width: 100%;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-weight: 400; letter-spacing: .22em;
+  text-transform: uppercase; font-size: 12.5px;
+  color: #08222e;
+  background: linear-gradient(180deg, #e9f7ff, #bfe6ff);
+  border: 0; border-radius: 13px;
+  padding: 13px;
+  box-shadow: 0 8px 22px rgba(140, 210, 255, .3);
+  transition: transform .12s, box-shadow .2s;
+}
+.gate-card button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(140, 210, 255, .42);
+}
+.gate-card button:active:not(:disabled) { transform: translateY(0); }
+.gate-card button:disabled { opacity: .7; cursor: default; }
+
+.gate-err {
+  height: 0; overflow: hidden; opacity: 0; margin-top: 0;
+  color: #ff9b8e; font-size: 12px; letter-spacing: .04em;
+  transition: opacity .25s, height .25s, margin-top .25s;
+}
+.gate-err.show { opacity: 1; height: 18px; margin-top: 10px; }
+
+.gate-hint {
+  height: 0; overflow: hidden; opacity: 0;
+  font-family: var(--serif); font-style: italic;
+  font-size: 14px; color: #cfe4ec;
+  transition: opacity .4s ease, height .4s ease, margin .4s ease;
+}
+.gate-hint.show { opacity: .85; height: 20px; margin-top: 12px; }
+
+/* A pearl that cannot be opened at all — missing, or still being made — keeps
+   its wording and loses its field: a box that cannot work is worse than none. */
+.gate-card.missing input,
+.gate-card.missing button { display: none; }
+
+@media (max-width: 560px) {
+  .gate-card { padding: 28px 22px 22px; }
+}
+
+/* ---------- the loader ---------- */
+.loader {
+  position: fixed; inset: 0; z-index: 5;
+  display: grid; place-items: center;
+  background: rgba(3, 9, 15, .6);
+  transition: opacity .6s ease;
+}
+.loader.hide { opacity: 0; pointer-events: none; }
+.ring {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  border: 2px solid rgba(220, 239, 255, .25);
+  border-top-color: #dcefff;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ring { animation-duration: 2.4s; }
+}
+
+/* ---------- the fallback ---------- */
+.fallback {
+  position: fixed; inset: 0; z-index: 6;
+  display: grid; place-items: center;
+  text-align: center; padding: 30px;
+  color: var(--muted); font-weight: 300; line-height: 1.7;
+}
+.fb-msg { font-size: 17px; color: var(--ink); }
+.fb-detail {
+  margin-top: 10px; font-size: 12.5px; line-height: 1.6; opacity: .75;
+  max-width: 34ch; margin-left: auto; margin-right: auto; word-break: break-word;
+}
+.fb-tech {
+  margin-top: 14px; font-size: 11px; opacity: .5;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  max-width: 40ch; margin-left: auto; margin-right: auto; word-break: break-word;
+}
+.fb-retry {
+  margin-top: 22px; padding: 10px 22px;
+  border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--ink);
+  font-size: 14px;
+  border: 1px solid rgba(243, 248, 249, .35);
+}
+.fb-retry:hover { background: rgba(243, 248, 249, .08); }
+
+/* ---------- the soft light pulse as the reveal lands ---------- */
+.flash {
+  position: fixed; inset: 0; z-index: 7;
+  pointer-events: none; opacity: 0;
+  background: radial-gradient(60% 50% at 50% 46%,
+    #ffffff 0%, #f7ecff 30%, rgba(220, 240, 255, .4) 60%, rgba(220, 240, 255, 0) 80%);
+  transition: opacity .6s ease;
+}
+.flash.on { opacity: 1; }

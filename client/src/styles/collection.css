@@ -1,0 +1,736 @@
+/* ============================================================
+   The reveal: a pile of printed memories.
+
+   Not a gallery and not a carousel. The photographs are stacked in the middle
+   of the screen — the top one whole, the rest showing a corner at their own
+   angle — and they are gone through one at a time.
+   ============================================================ */
+
+.gallery {
+  position: fixed; inset: 0; z-index: 8;
+  display: flex; flex-direction: column;
+  padding: max(8px, env(safe-area-inset-top)) 0 max(8px, env(safe-area-inset-bottom));
+  /* Three stops of one still gradient: a shaft of light from above the frame,
+     a warm pool where the pile sits, and the deep water under everything. It
+     is painted once and never again. */
+  background:
+    radial-gradient(58% 32% at 50% -8%, rgba(196, 238, 255, .1), transparent 62%),
+    radial-gradient(112% 56% at 50% -14%, rgba(152, 214, 244, .17), transparent 60%),
+    radial-gradient(130% 92% at 50% 2%, #14425a 0%, #0a2b3c 34%, #061620 70%, #020a10 100%);
+  opacity: 0; pointer-events: none;
+  /* `visibility` rather than opacity alone is what stops the deck being PAINTED
+     while it waits.
+
+     The pile is mounted and dealt out during the three-second push-in, so that
+     it is already settled when the water clears — that timing is the whole
+     effect and it is unchanged. But an element at `opacity: 0` is still
+     painted every frame, so the whole deck was being drawn behind an invisible
+     layer while the camera flew into the pearl, competing with the one
+     animation the visitor is actually looking at.
+
+     `visibility: hidden` skips painting the subtree entirely while KEEPING its
+     layout box — so getBoundingClientRect still answers, and fit() and dealIn()
+     measure exactly what they measured before. The delayed transition on the
+     way out lets the fade finish before the deck stops being drawn.
+
+     The same trick, at card scale, is `.pcard.is-deep` further down. */
+  visibility: hidden;
+  transition: opacity .7s ease, visibility 0s linear .7s;
+}
+.gallery.show {
+  opacity: 1; pointer-events: auto;
+  visibility: visible;
+  transition: opacity .7s ease, visibility 0s;
+}
+
+/* Two layers of vignette rather than one: a wide soft fall that darkens the
+   corners, and a tighter warm pool right under the pile so the print in hand
+   sits in its own light. The eye goes where the light is. */
+.gallery::after {
+  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(76% 46% at 50% 40%, rgba(255, 244, 226, .05), transparent 62%),
+    radial-gradient(118% 82% at 50% 44%, transparent 40%, rgba(1, 6, 11, .66) 100%);
+}
+
+/* Light falling through water. It used to be a blended, animated conic
+   gradient across the whole screen — a full-viewport composite every frame,
+   forever, for something nobody consciously sees. It is now painted into the
+   ground above, once, and never moves. */
+
+/* motes of light, slow enough to be felt rather than seen */
+.dust { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.dust i {
+  position: absolute; bottom: -10px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle at 34% 30%,
+    rgba(255, 255, 255, .9), rgba(198, 232, 255, .3) 55%, rgba(198, 232, 255, 0) 72%);
+  animation: motes linear infinite;
+}
+@keyframes motes {
+  0% { transform: translate3d(0, 0, 0) scale(.85); opacity: 0; }
+  14% { opacity: .45; }
+  84% { opacity: .24; }
+  100% { transform: translate3d(var(--dx, 18px), -104vh, 0) scale(1.15); opacity: 0; }
+}
+
+.gallery-close {
+  position: fixed; top: 18px; right: 18px; z-index: 13;
+  width: 44px; height: 44px; border-radius: 50%;
+  cursor: pointer; color: #eef7f8; font-size: 26px; line-height: 1;
+  border: 1px solid rgba(190, 230, 255, .25);
+  background: rgba(10, 24, 34, .78);
+  transition: transform .15s, background .2s;
+  opacity: 0; pointer-events: none;
+}
+.gallery.show .gallery-close { opacity: 1; pointer-events: auto; }
+.gallery-close:hover { transform: rotate(90deg) scale(1.05); background: rgba(20, 48, 64, .75); }
+
+/* ---------- the wordmark over the pile ----------
+   The gift says whose it is before it says what is in it: a wordmark, a
+   hairline with one point of colour at its centre, and two words of the
+   sender's. It is `flex: none` and deliberately shallow — every pixel here is
+   a pixel the photographs do not get. */
+.deck-head {
+  position: relative; z-index: 3; flex: none;
+  display: flex; flex-direction: column; align-items: center;
+  padding: clamp(2px, 1.2vh, 12px) 56px 0;
+  opacity: 0; transform: translateY(-8px);
+  transition: opacity .9s ease .15s, transform 1s cubic-bezier(.2, .9, .28, 1) .15s;
+}
+.gallery.show .deck-head { opacity: 1; transform: none; }
+
+.deck-brand {
+  margin: 0;
+  font-family: var(--serif); font-style: italic; font-weight: 500;
+  font-size: clamp(19px, 5.4vw, 30px); letter-spacing: .22em;
+  /* an italic at this tracking leans away from its own last letter; the
+     padding gives the E back the room the letter-spacing took */
+  padding-left: .22em; line-height: 1.1;
+  color: #fbf3e6; text-shadow: 0 1px 26px rgba(180, 230, 255, .22);
+}
+.deck-flourish {
+  display: block; width: clamp(56px, 18vw, 92px); height: 1px;
+  margin: clamp(6px, 1.2vh, 11px) auto;
+  background: linear-gradient(90deg,
+    transparent, rgba(200, 153, 143, .34) 32%, #c8998f 50%,
+    rgba(200, 153, 143, .34) 68%, transparent);
+}
+.deck-kicker {
+  margin: 0;
+  font-family: var(--sans); font-weight: 300;
+  font-size: clamp(8px, 2.2vw, 10px);
+  letter-spacing: .42em; text-transform: uppercase; padding-left: .42em;
+  color: rgba(226, 241, 247, .42);
+}
+
+/* ---------- the stack ----------
+   Every transform here belongs to JS: one spring per card drives x, y,
+   rotation, scale and opacity together. CSS therefore animates SHADOW only —
+   a transition on transform would fight the spring and cost the interaction
+   its directness. */
+.stage {
+  position: relative; z-index: 2; flex: 1; min-height: 0;
+  display: grid; place-items: center;
+  padding: clamp(6px, 1.4vh, 14px) clamp(10px, 4vw, 26px) 0;
+}
+
+/* The pile is nudged down by half the room reserved for its own fan: the
+   cards behind rise above the top one, and centring the box alone would let
+   them climb out of the stage. */
+.stack {
+  position: relative;
+  width: var(--cw, 280px); height: var(--ch, 420px);
+  transform: translateY(calc(var(--fan, 0px) / 2));
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: grab;
+  border: 0; padding: 0; background: none;
+}
+.stack.dragging { cursor: grabbing; }
+.stack:focus-visible { outline: none; }
+.stack:focus-visible .pcard.is-top {
+  box-shadow: 0 0 0 2px #bfe9ff, 0 30px 62px rgba(3, 12, 20, .5);
+}
+
+/* A print: warm paper, soft corners, real weight underneath.
+
+   ---- what is deliberately NOT here ----
+
+   No `mix-blend-mode`, no `backface-visibility`, no `will-change`, and no
+   transition on `box-shadow`. Each of those was costing more than it bought:
+
+   · a blended paper grain forces the browser to keep everything behind the
+     card as a separate texture and re-composite it whenever anything moves —
+     twenty prints, twenty textures, on a phone;
+   · `backface-visibility: hidden` promotes every card to its own compositor
+     layer and keeps it there, whether or not it is moving or even visible;
+   · an animated shadow is a full repaint of a blurred region per frame, and
+     the shadows here are large.
+
+   The weight comes from two shadows instead of four. On a screen, at these
+   radii, the difference is not visible; the difference in cost is. */
+.pcard {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  padding: calc(var(--cw, 280px) * .034);
+  border-radius: clamp(10px, calc(var(--cw, 280px) * .046), 18px);
+  background: var(--paper);
+  box-shadow:
+    0 2px 6px rgba(8, 22, 32, .3),
+    0 16px 34px rgba(3, 12, 20, .34);
+  transform-origin: 50% 50%;
+}
+
+/* A print past the visible depth is not painted at all. It keeps its layout
+   box, so nothing measured against it changes — it is simply not drawn. */
+.pcard.is-deep { visibility: hidden; }
+
+/* ---------- promotion, for exactly as long as it is earned ----------
+
+   `will-change` is refused everywhere else in this stylesheet, and for a good
+   reason: it promotes an element to its own compositor layer and KEEPS it
+   there. Twenty standing layers is not a hint, it is a memory leak with good
+   manners.
+
+   But a card being dragged is the one case the browser cannot infer. During a
+   CSS transition it knows movement is coming and promotes on its own; during a
+   drag the transform is written from JavaScript on every pointer event, and it
+   has no way to tell that from any other style change. So it repaints the card
+   instead — the paper gradient, the photograph, and a shadow with a seventy
+   pixel blur — sixty times a second, on the main thread.
+
+   These two classes exist for the length of a gesture and no longer:
+   `.dragging` is on the pile while a finger is down, `.shuffling` for the half
+   second the pile is rearranging itself. Outside those, nothing is promoted. */
+.stack.dragging .pcard.is-top,
+.stack.shuffling .pcard:not(.is-deep) {
+  will-change: transform, opacity;
+}
+
+/* warm light falling across the paper, and the fibre of it — one layer,
+   composited once, never blended */
+.pcard::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(150deg, rgba(255, 247, 232, .8) 0%, rgba(255, 255, 255, 0) 42%),
+    radial-gradient(120% 74% at 86% 106%, rgba(122, 92, 60, .12), transparent 62%);
+}
+
+/* the print in hand: held above the others, so its shadow travels further and
+   a breath of cold light gathers around its edge */
+.pcard.is-top {
+  box-shadow:
+    0 3px 8px rgba(8, 22, 32, .32),
+    0 26px 52px rgba(3, 12, 20, .44),
+    0 0 70px rgba(150, 215, 255, .08);
+}
+
+/* the window the photograph is mounted in. The picture is CONTAINED, never
+   cropped: a panorama keeps its shape and simply sits on more paper. */
+.pcard-win {
+  position: relative; flex: 1; min-height: 0; overflow: hidden;
+  border-radius: calc(clamp(10px, calc(var(--cw, 280px) * .046), 18px) * .42);
+  background: #e7ded0;
+  box-shadow: inset 0 0 0 1px rgba(62, 44, 28, .12), inset 0 2px 7px rgba(62, 44, 28, .15);
+}
+.pcard-win img {
+  display: block; width: 100%; height: 100%; object-fit: contain;
+  -webkit-user-drag: none; user-select: none;
+}
+/* a photograph that will not load must not leave a hole in the pile */
+.pcard-missing {
+  position: absolute; inset: 0;
+  display: grid; place-items: center; text-align: center;
+  padding: 12px;
+  font-family: var(--sans); font-weight: 300;
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(75, 64, 56, .5);
+  background: linear-gradient(158deg, #f3ece0, #e6dccb);
+}
+
+/* the hand-written note and the date, on the paper margin below */
+.pcard-foot {
+  flex: none; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1px; text-align: center;
+  padding: calc(var(--cw, 280px) * .028) 8px calc(var(--cw, 280px) * .008);
+  min-height: calc(var(--cw, 280px) * .148);
+}
+.pcard-cap {
+  font-family: var(--hand);
+  font-size: clamp(15px, calc(var(--cw, 280px) * .076), 23px);
+  line-height: 1.1; color: var(--paper-ink);
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pcard-date {
+  font-family: var(--sans); font-weight: 300;
+  font-size: clamp(7.5px, calc(var(--cw, 280px) * .032), 10px);
+  letter-spacing: .26em; text-transform: uppercase; color: rgba(75, 64, 56, .46);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+
+/* ---------- films and written pages, in the same pile ----------
+   A memory is not always a photograph. A film is the same print with the frame
+   the sender's browser grabbed mounted in the window and a play badge over it;
+   a written page has no window at all — the words ARE the print. */
+.pcard-play { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.pcard-play i {
+  width: clamp(38px, calc(var(--cw, 280px) * .19), 62px);
+  height: clamp(38px, calc(var(--cw, 280px) * .19), 62px);
+  border-radius: 50%; display: grid; place-items: center;
+  /* solid, not blurred: a backdrop-filter sitting ON a card is recomputed for
+     every frame that card moves, and the badge is 50px of a moving pile */
+  background: rgba(8, 20, 28, .62);
+  border: 1px solid rgba(255, 255, 255, .34);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .3);
+}
+.pcard-play svg { width: 42%; height: 42%; fill: #fff; margin-left: 8%; }
+.pcard-dur {
+  position: absolute; right: 8px; bottom: 8px;
+  padding: 3px 8px; border-radius: 99px;
+  font-size: 9.5px; letter-spacing: .14em; color: #eaf4f8;
+  background: rgba(6, 16, 24, .62); font-variant-numeric: tabular-nums;
+}
+
+/* ---------- a voice, in the same frame ----------
+
+   A recording has nothing to show, so what is mounted in the window is the
+   OBJECT rather than a player: a warm medallion struck into the paper, the
+   shape of the sound under it, and how long it runs. Closer to a record
+   sleeve than to a set of controls — and it takes exactly the room a
+   photograph takes, because it is exactly as much of a memory.
+
+   There is no play button on the card. A photograph opens with a tap and so
+   does this; the controls live full screen, where there is room for them. */
+/* Scoped to `.stack` on purpose: the workshop has a voice card of its own,
+   also `.pcard.is-voice`, with its own contents. These rules are the viewer's. */
+.stack .pcard.is-voice .pcard-win {
+  background:
+    radial-gradient(78% 62% at 50% 30%, #fdf1e2 0%, #f6e3cd 46%, #ecd4ba 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: calc(var(--cw, 280px) * .055);
+  padding: calc(var(--cw, 280px) * .08);
+  box-shadow: inset 0 0 0 1px rgba(122, 92, 60, .14);
+}
+
+.vm-medal {
+  position: relative; flex: none;
+  width: calc(var(--cw, 280px) * .30); height: calc(var(--cw, 280px) * .30);
+  border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(62% 58% at 38% 28%, #fffaf3, #f0d7b8 52%, #cf9f72 100%);
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, .85),
+    inset 0 -5px 12px rgba(140, 96, 58, .3),
+    0 6px 18px rgba(120, 84, 50, .3);
+}
+.vm-medal svg { width: 44%; height: 44%; fill: #5b3f28; }
+
+/* a ring that breathes out of the medallion — only while this note is heard */
+.vm-halo {
+  position: absolute; inset: -7%; border-radius: 50%;
+  border: 1px solid rgba(168, 114, 74, .5);
+  opacity: 0; pointer-events: none;
+}
+.pcard.is-voice.is-playing .vm-halo { animation: vmhalo 2.4s ease-out infinite; }
+@keyframes vmhalo {
+  0% { transform: scale(.88); opacity: .6; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* The waveform is drawn from the note's own seed, so the shape on the card is
+   the shape full screen. It is a still image of the sound, not a meter. */
+.vm-wave {
+  display: flex; align-items: center; justify-content: center;
+  gap: calc(var(--cw, 280px) * .008);
+  width: 84%; height: calc(var(--cw, 280px) * .16);
+}
+.vm-wave i {
+  flex: 1; min-width: 1px; height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(180deg, rgba(168, 114, 74, .62), rgba(140, 92, 56, .44));
+  transform: scaleY(var(--h, .4));
+}
+/* while it plays the bars breathe — one animation per bar, thirty of them,
+   and only ever on the one card whose note is running */
+.pcard.is-voice.is-playing .vm-wave i {
+  animation: vmwave 1.3s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * -.05s);
+}
+@keyframes vmwave { to { transform: scaleY(calc(var(--h) * 1.4)); } }
+
+/* The one control in the pile. Nothing plays by itself, so the way to hear a
+   recording has to be on the card and has to be unmistakable. */
+.vm-play {
+  flex: none; cursor: pointer;
+  width: calc(var(--cw, 280px) * .17); height: calc(var(--cw, 280px) * .17);
+  border-radius: 50%; display: grid; place-items: center;
+  padding: 0; color: #4a3320;
+  background: #fffaf3;
+  border: 1px solid rgba(122, 92, 60, .22);
+  box-shadow: 0 2px 4px rgba(90, 64, 40, .16), 0 7px 16px rgba(90, 64, 40, .18);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .18s cubic-bezier(.2, .9, .28, 1), box-shadow .22s;
+}
+.vm-play svg { width: 40%; height: 40%; fill: currentColor; }
+@media (hover: hover) {
+  .vm-play:hover {
+    transform: scale(1.07);
+    box-shadow: 0 3px 6px rgba(90, 64, 40, .2), 0 11px 24px rgba(90, 64, 40, .24);
+  }
+}
+.vm-play:active { transform: scale(.94); }
+
+.vm-line {
+  display: flex; align-items: center; justify-content: center;
+  gap: calc(var(--cw, 280px) * .028);
+}
+.vm-kicker {
+  font-family: var(--sans); font-weight: 300;
+  font-size: clamp(7px, calc(var(--cw, 280px) * .034), 10px);
+  letter-spacing: .32em; text-transform: uppercase; padding-left: .32em;
+  color: rgba(91, 63, 40, .6);
+}
+.vm-dot {
+  width: 2.5px; height: 2.5px; border-radius: 50%; flex: none;
+  background: rgba(91, 63, 40, .4);
+}
+.vm-dur {
+  font-family: var(--sans); font-weight: 400;
+  font-size: clamp(8px, calc(var(--cw, 280px) * .038), 11px);
+  letter-spacing: .1em; color: rgba(91, 63, 40, .8);
+  font-variant-numeric: tabular-nums;
+}
+
+body.perf-low .pcard.is-voice.is-playing .vm-wave i,
+body.perf-low .pcard.is-voice.is-playing .vm-halo { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .pcard.is-voice.is-playing .vm-wave i,
+  .pcard.is-voice.is-playing .vm-halo { animation: none; }
+}
+
+.pcard.is-note .pcard-win {
+  background: linear-gradient(158deg, #fffdf9, #f7f0e2);
+  display: flex; flex-direction: column; justify-content: center;
+  padding: calc(var(--cw, 280px) * .085) calc(var(--cw, 280px) * .075);
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(62, 44, 28, .1);
+}
+.note-rule {
+  width: 34%; height: 1px; margin: 0 auto calc(var(--cw, 280px) * .05);
+  background: linear-gradient(90deg, transparent, rgba(122, 92, 60, .4), transparent);
+}
+.note-title {
+  font-family: var(--serif); font-style: italic; font-weight: 500;
+  font-size: clamp(17px, calc(var(--cw, 280px) * .095), 27px);
+  line-height: 1.2; color: #3f352c; margin: 0 0 calc(var(--cw, 280px) * .03);
+}
+.note-day {
+  font-family: var(--sans); font-weight: 300;
+  font-size: clamp(7.5px, calc(var(--cw, 280px) * .032), 10px);
+  letter-spacing: .28em; text-transform: uppercase; color: rgba(75, 64, 56, .5);
+  margin: 0 0 calc(var(--cw, 280px) * .055);
+}
+.note-body {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: clamp(12px, calc(var(--cw, 280px) * .056), 16px);
+  line-height: 1.72; color: rgba(63, 53, 44, .86);
+  margin: 0; overflow: hidden; white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical;
+}
+
+/* ---------- where you are in the album, and the two quiet ways through ---------- */
+.stack-meta {
+  position: relative; z-index: 2; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  gap: clamp(16px, 5vw, 26px);
+  padding: clamp(10px, 2vh, 20px) 20px 0;
+}
+
+/* A ring of glass, not a button: a hairline edge, a dark well behind it, and a
+   cold glow that only wakes on hover. The 44px box is the smallest target a
+   thumb reliably hits; the glyph inside is small so the ring reads first. */
+.stack-btn {
+  position: relative; width: 44px; height: 44px; flex: none;
+  border-radius: 50%; cursor: pointer;
+  display: grid; place-items: center; padding: 0 0 2px; line-height: 1;
+  font-size: 20px; color: rgba(223, 240, 247, .9);
+  border: 1px solid rgba(190, 230, 255, .18);
+  background: radial-gradient(120% 120% at 50% 0%, rgba(34, 74, 96, .5), rgba(9, 25, 35, .42));
+  box-shadow: 0 4px 14px rgba(2, 10, 18, .34), inset 0 1px 0 rgba(255, 255, 255, .08);
+  -webkit-tap-highlight-color: transparent;
+  transition: background .3s, border-color .3s, color .3s, box-shadow .35s,
+    transform .32s cubic-bezier(.2, .9, .28, 1), opacity .35s;
+}
+/* the glow lives on a pseudo-element so it can bloom without moving the ring */
+.stack-btn::after {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%;
+  pointer-events: none; opacity: 0; transition: opacity .35s ease;
+  background: radial-gradient(circle, rgba(160, 220, 255, .24), transparent 68%);
+}
+@media (hover: hover) {
+  .stack-btn:hover {
+    color: #f2fbff; border-color: rgba(190, 230, 255, .42);
+    transform: translateY(-2px) scale(1.06);
+    box-shadow: 0 10px 24px rgba(2, 10, 18, .44), inset 0 1px 0 rgba(255, 255, 255, .14);
+  }
+  .stack-btn:hover::after { opacity: 1; }
+}
+.stack-btn:active { transform: scale(.93); transition-duration: .09s; }
+.stack-btn[disabled] { opacity: .14; pointer-events: none; }
+
+/* the count is set in the display serif, the current number large and warm,
+   the total small and cool — a fraction, read as one thing */
+.stack-count {
+  font-family: var(--serif); letter-spacing: .1em;
+  font-size: clamp(12px, 2.3vw, 15px); color: rgba(226, 241, 247, .42);
+  font-variant-numeric: tabular-nums; min-width: 62px; text-align: center;
+  display: inline-flex; align-items: baseline; justify-content: center; gap: .1em;
+}
+.stack-count b {
+  font-weight: 500; font-style: italic; font-size: 1.55em; color: #fbf3e6;
+  text-shadow: 0 0 20px rgba(180, 230, 255, .25);
+}
+.stack-count i { font-style: normal; opacity: .35; margin: 0 .16em; font-size: 1.05em; }
+
+/* ---------- the journal ----------
+   A pane of glass under the navigation, holding the words that belong to the
+   print in hand. It is deliberately light — a little blur, a hairline of
+   white, one soft shadow — so it sits BESIDE the photograph rather than
+   competing with it. */
+.journal {
+  position: relative; z-index: 2; flex: none; text-align: center;
+  padding: clamp(6px, 1.4vh, 14px) clamp(12px, 4vw, 26px) 0;
+  opacity: 0; transform: translateY(10px);
+  transition: opacity .9s ease .3s, transform 1s cubic-bezier(.2, .9, .28, 1) .3s;
+}
+.gallery.show .journal { opacity: 1; transform: none; }
+
+.orn {
+  display: flex; align-items: center; justify-content: center;
+  gap: clamp(9px, 2vw, 15px); margin-bottom: clamp(7px, 1.3vh, 13px);
+}
+.orn i {
+  display: block; height: 1px; width: clamp(24px, 7vw, 68px);
+  background: linear-gradient(90deg, transparent, rgba(190, 230, 255, .5));
+}
+.orn i:last-child { background: linear-gradient(270deg, transparent, rgba(190, 230, 255, .5)); }
+.orn b {
+  width: 5px; height: 5px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 34% 30%, #fff 0%, #eaf2f7 45%, #a9bdc9 100%);
+  box-shadow: 0 0 12px rgba(200, 235, 255, .7);
+}
+
+/* A pane of glass, and only as tall as what it holds: the padding is tight and
+   the letter's scroll box grows to the text rather than reserving a fixed
+   block, so a two-word memory does not sit in an empty room. */
+/* No `backdrop-filter`.
+
+   A blurred backdrop has to be recomputed whenever ANYTHING behind it moves —
+   and what is directly behind this pane is the pile, which moves on every
+   card. A full-width blurred region, re-rasterised for the length of every
+   shuffle, was the single most expensive thing on the screen.
+
+   What it bought was a suggestion of depth. A flat translucent ground over
+   the same water, with a hairline of light along its top edge, reads as glass
+   just as well and costs one rectangle. */
+.mem-card {
+  width: min(92%, 560px); margin: 0 auto;
+  padding: clamp(12px, 2.6vw, 19px) clamp(18px, 4.6vw, 32px) clamp(13px, 2.8vw, 21px);
+  border-radius: clamp(19px, 4.6vw, 23px);
+  background: linear-gradient(158deg, rgba(20, 46, 62, .62), rgba(9, 26, 38, .52));
+  border: 1px solid rgba(232, 246, 252, .12);
+  box-shadow:
+    0 10px 30px rgba(2, 10, 18, .26),
+    inset 0 1px 0 rgba(255, 255, 255, .09);
+}
+
+/* The words move as one block: they leave upward while the photograph is still
+   travelling, wait out the gap, and come back in on a rise. The two halves
+   never cross — you never catch the text mid-change. */
+.mem-body {
+  opacity: 1; transform: none;
+  transition: opacity .42s ease, transform .62s cubic-bezier(.16, .84, .24, 1);
+}
+.mem-body.leaving {
+  opacity: 0; transform: translateY(-7px) scale(.985);
+  transition-duration: .22s, .22s;
+}
+.mem-body.entering { opacity: 0; transform: translateY(18px) scale(.985); transition: none; }
+
+/* The title carries the memory, so it is the one thing set large: a real
+   display size in the serif, with the optical letter-spacing an italic wants
+   at that size (slightly negative — italics already lean into each other) and
+   a line height tight enough to hold two lines together. */
+.mem-title {
+  margin: 0; font-family: var(--serif); font-style: italic; font-weight: 500;
+  font-size: clamp(23px, 5.4vw, 35px); line-height: 1.12; letter-spacing: -.004em;
+  color: #fbf3e6; text-shadow: 0 1px 22px rgba(180, 230, 255, .22);
+  text-wrap: balance;
+}
+/* the date is a whisper under it: small, wide, deliberately quiet */
+.mem-date {
+  margin: clamp(6px, 1.1vh, 10px) 0 0;
+  font-family: var(--sans); font-weight: 300;
+  font-size: clamp(8px, 1.7vw, 10px); letter-spacing: .34em; text-transform: uppercase;
+  color: rgba(226, 241, 247, .38);
+}
+/* a hairline between the heading and the letter, the width of a thumb */
+.mem-rule {
+  width: 34px; height: 1px; margin: clamp(9px, 1.7vh, 14px) auto 0; border: 0;
+  background: linear-gradient(90deg, transparent, rgba(190, 230, 255, .42), transparent);
+}
+/* a long letter keeps its own quiet scroll rather than pushing the pile up */
+.mem-scroll {
+  max-height: min(15vh, 132px); overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; margin-top: clamp(9px, 1.7vh, 14px);
+  scrollbar-width: thin; scrollbar-color: rgba(190, 230, 255, .2) transparent;
+}
+.mem-scroll.is-scrollable {
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+}
+.mem-scroll::-webkit-scrollbar { width: 4px; }
+.mem-scroll::-webkit-scrollbar-thumb { background: rgba(190, 230, 255, .2); border-radius: 99px; }
+.mem-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* The letter is prose, so it gets prose settings: a measure that stops at
+   roughly 40 characters where the eye still finds the next line without
+   hunting, generous leading, and enough weight not to grey out against the
+   water. `text-wrap:pretty` keeps a single word off the last line. */
+.mem-text {
+  margin: 0 auto; max-width: 40ch; white-space: pre-line; text-align: center;
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: clamp(14.5px, 2.5vw, 19px); line-height: 1.82; letter-spacing: .008em;
+  color: rgba(251, 243, 230, .84); text-wrap: pretty;
+}
+
+/* One line of guidance, gone the moment the first print is touched.
+
+   It used to collapse its own row as it went — `max-height` and `padding-top`
+   animated to zero. Both of those are LAYOUT properties: the browser reflowed
+   the whole column on every frame of that transition, and the transition began
+   on the first pointermove of the first swipe. The stutter people felt when
+   they swiped a photograph for the first time was this line tidying itself
+   away.
+
+   It fades instead, and keeps its row. The pile is sized from the stage, which
+   never had that 22px anyway, so nothing is gained by reclaiming it. */
+.stack-hint {
+  position: relative; z-index: 2; flex: none; text-align: center;
+  font-size: 9.5px; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--muted); font-weight: 300; pointer-events: none;
+  padding-top: clamp(5px, 1vh, 9px); opacity: 0;
+  transition: opacity .6s ease 1.1s;
+}
+.gallery.show .stack-hint { opacity: 1; }
+.gallery.touched .stack-hint { opacity: 0; transition: opacity .35s ease; }
+
+/* ---------- while a memory is open ----------
+   The pile does not simply sit behind the story: it falls back a little, the
+   way a room does when a light comes on in front of it. That is what makes
+   the print flying up out of the pile read as coming FORWARD rather than as a
+   rectangle growing.
+
+   Transform and opacity only — no `filter: blur()`. A blur here is a
+   full-region rasterisation on the very frames the story's own entrance is
+   trying to use, and the story covers this almost entirely anyway.
+
+   The stack itself is exempt: the story measures its flight home against the
+   card it came from, and a scaled ancestor would send it to the wrong place. */
+.gallery .deck-head,
+.gallery .stack-meta,
+.gallery .journal,
+.gallery .stack-hint {
+  transition: transform .5s cubic-bezier(.2, .9, .28, 1) .08s, opacity .45s ease .08s;
+}
+.gallery.behind .deck-head,
+.gallery.behind .stack-meta,
+.gallery.behind .journal,
+.gallery.behind .stack-hint {
+  transform: scale(.96);
+  opacity: .28;
+  transition: transform .45s cubic-bezier(.2, .9, .28, 1), opacity .3s ease;
+}
+
+/* an album with nothing in it says so, rather than showing an empty pile */
+.gallery-empty {
+  position: relative; z-index: 2;
+  margin: auto; text-align: center; max-width: 34ch;
+  font-family: var(--serif); font-style: italic;
+  font-size: clamp(17px, 3.4vw, 22px); line-height: 1.7;
+  color: rgba(251, 243, 230, .8);
+}
+
+/* ---- responsive: the column sheds ornament before it sheds photograph ----
+   Every rule below exists to give the prints height. The pile is the point;
+   the ornament, the hint and the letter's depth are what get sacrificed for
+   it, in that order. */
+
+/* ---- the phone ----
+   On a phone the print is height-constrained, not width-constrained: it is
+   everything BELOW the pile that decides how large the photograph can be. The
+   letter is not truncated — it keeps its own scroll — it simply shows two
+   lines at rest instead of four. */
+@media (max-width: 560px) {
+  .gallery-close { top: 10px; right: 10px; width: 38px; height: 38px; font-size: 22px; }
+  .deck-head { padding: 2px 48px 0; }
+  .deck-flourish { margin: 5px auto; }
+  .orn { display: none; }               /* it earns nothing at this size */
+  .journal { padding-top: 2px; padding-left: 12px; padding-right: 12px; }
+  .mem-card { width: min(96%, 560px); padding: 9px 16px 11px; border-radius: 18px; }
+  .mem-title { font-size: clamp(19px, 5vw, 25px); line-height: 1.14; }
+  .mem-date { margin-top: 4px; font-size: 8px; letter-spacing: .28em; }
+  .mem-rule { margin-top: 7px; width: 28px; }
+  .mem-scroll { max-height: min(8.5vh, 68px); margin-top: 7px; }
+  .mem-text { font-size: 14px; line-height: 1.7; }
+  .stack-meta { gap: 18px; padding-top: 8px; }
+  .stack-btn { width: 40px; height: 40px; font-size: 18px; }
+  .stack-count { min-width: 54px; }
+  /* the print takes the width; 3vw a side is the whole margin it needs */
+  .stage { padding-left: 3vw; padding-right: 3vw; }
+}
+
+/* iPhone-class heights: everything below the pile gets tighter so the pile
+   itself can be larger. */
+@media (max-height: 900px) {
+  .journal { padding-top: clamp(4px, 1vh, 9px); }
+  .mem-card { padding: clamp(10px, 2.2vw, 15px) clamp(18px, 4.6vw, 30px) clamp(11px, 2.4vw, 16px); }
+  .mem-scroll { max-height: min(11vh, 92px); margin-top: clamp(8px, 1.4vh, 11px); }
+  .mem-rule { margin-top: clamp(7px, 1.4vh, 11px); }
+  .stack-meta { padding-top: clamp(7px, 1.2vh, 12px); }
+  .stack-btn { width: 42px; height: 42px; font-size: 19px; }
+}
+@media (max-height: 740px) {
+  .gallery { padding-bottom: max(4px, env(safe-area-inset-bottom)); }
+  .mem-scroll { max-height: min(10vh, 82px); }
+}
+@media (max-height: 900px) {
+  .deck-head { padding-top: clamp(2px, .8vh, 8px); }
+  .deck-flourish { margin: clamp(4px, .9vh, 8px) auto; }
+}
+
+/* landscape phones and short windows: the ornament goes, then the letter is
+   capped, so the prints keep as much height as the screen can spare */
+@media (max-height: 560px) {
+  .orn, .stack-hint { display: none; }
+  /* the wordmark stops being a title and becomes a label */
+  .deck-head { padding-top: 0; }
+  .deck-brand { font-size: 15px; letter-spacing: .2em; }
+  .deck-flourish, .deck-kicker { display: none; }
+  .journal { padding-top: 4px; }
+  .mem-card { padding: 9px 16px 11px; border-radius: 18px; }
+  .mem-title { font-size: clamp(15px, 3.4vw, 21px); }
+  .mem-date { letter-spacing: .22em; margin-top: 3px; }
+  .mem-rule { margin-top: 6px; }
+  .mem-scroll { max-height: 11vh; margin-top: 6px; }
+  .mem-text { font-size: clamp(12px, 2vw, 15px); line-height: 1.6; }
+  .stack-meta { padding-top: 6px; }
+}
+@media (min-width: 1100px) {
+  .mem-text { max-width: 44ch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journal { transition: opacity .3s ease; }
+  .dust { display: none; }
+}

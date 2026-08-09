@@ -1,0 +1,56 @@
+/* ============================================================
+   The ground the whole experience stands on: deep water, warm ink,
+   three typefaces with three jobs.
+   ============================================================ */
+:root {
+  --ink: #f3f8f9;
+  --muted: rgba(243, 248, 249, .6);
+
+  --serif: "Cormorant Garamond", Georgia, serif;
+  --sans: "Jost", system-ui, -apple-system, sans-serif;
+  --hand: "Caveat", "Segoe Script", "Bradley Hand", cursive;
+
+  /* the paper every printed memory is struck on */
+  --paper: linear-gradient(158deg, #fffdf9 0%, #fbf6ee 46%, #f2eadc 100%);
+  --paper-ink: #4b4038;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  font-family: var(--sans);
+  color: var(--ink);
+  background: radial-gradient(130% 100% at 50% 8%, #14506b 0%, #0a2c3d 34%, #061721 68%, #02090f 100%);
+  overflow: hidden;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+/* The workshop, the panel and the console are documents, not scenes: they
+   scroll. Only the viewer locks the page. */
+body.is-page { overflow: auto; }
+
+#root { min-height: 100%; }
+
+button { font: inherit; color: inherit; }
+
+/* Never remove a focus ring without putting a better one back. */
+:focus-visible {
+  outline: 2px solid rgba(190, 230, 255, .75);
+  outline-offset: 2px;
+}
+
+img { max-width: 100%; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
