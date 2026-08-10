@@ -1,11 +1,10 @@
 'use strict';
 /* ============================================================
    The Express application.
-   Security headers, CORS, compression, the API, the media, and — in
-   production — the built React client.
+   API-only: security headers, CORS, compression, the API and the media.
+   The client is a separate deployment (e.g. Netlify) and is never served
+   from here — see CLIENT_URL / VITE_API_URL for how the two are wired.
    ============================================================ */
-const fs = require('fs');
-const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -102,24 +101,9 @@ app.use('/m', MEDIA_ROOT
   })
   : require('./routes/media.routes'));
 
-/* Unknown /api/* paths answer JSON rather than falling through to the SPA. */
+/* Everything else — including /p/:slug, /admin, /panel — belongs to the
+   separately-deployed client, not to this API. */
 app.use(notFoundHandler);
-
-/* ------------------------------------------------------------
-   The built client, when there is one. Every non-API path serves index.html
-   so /p/:slug, /build/:slug, /admin and /panel are handled by the router in
-   the browser — the experience must never reload between memories.
-   ------------------------------------------------------------ */
-const CLIENT_DIST = path.resolve(env.paths.projectRoot, 'client', 'dist');
-
-if (fs.existsSync(path.join(CLIENT_DIST, 'index.html'))) {
-  app.use(express.static(CLIENT_DIST, { index: false, maxAge: '1h', etag: true }));
-  app.get('*', (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
-} else {
-  app.get('*', (_req, res) => res.status(404).json({
-    error: "Le client n'est pas construit. Lancez `npm run dev` (développement) ou `npm run build` (production)."
-  }));
-}
 
 app.use(errorHandler);
 

@@ -2,17 +2,15 @@
 /* ============================================================
    Environment
    One place that reads process.env, so nothing below has to guess what a
-   missing variable means. The root .env is the single source; a server/.env
-   may override it for a one-off local run.
+   missing variable means. server/.env is the only source — this backend is
+   deployed standalone (e.g. on a VPS) with no client alongside it.
    ============================================================ */
 const path = require('path');
 const dotenv = require('dotenv');
 
 const SERVER_ROOT = path.resolve(__dirname, '..', '..');
-const PROJECT_ROOT = path.resolve(SERVER_ROOT, '..');
 
-dotenv.config({ path: path.join(PROJECT_ROOT, '.env') });
-dotenv.config({ path: path.join(SERVER_ROOT, '.env'), override: true });
+dotenv.config({ path: path.join(SERVER_ROOT, '.env') });
 
 const num = (v, fallback) => {
   const n = Number(v);
@@ -47,7 +45,7 @@ const env = {
   referencePepper: str(process.env.REFERENCE_PEPPER, 'seaora-reference'),
 
   storageDriver: str(process.env.STORAGE_DRIVER, 'database'),
-  uploadDir: path.isAbsolute(uploadDir) ? uploadDir : path.resolve(PROJECT_ROOT, uploadDir),
+  uploadDir: path.isAbsolute(uploadDir) ? uploadDir : path.resolve(SERVER_ROOT, uploadDir),
 
   limits: {
     images: num(process.env.MAX_IMAGES, 24),
@@ -67,7 +65,7 @@ const env = {
   /* Anti-brute-force on the gate: 12 tries per IP per pearl per quarter hour. */
   unlock: { windowMs: 15 * 60e3, maxTries: 12 },
 
-  paths: { projectRoot: PROJECT_ROOT, serverRoot: SERVER_ROOT },
+  paths: { serverRoot: SERVER_ROOT },
 
   /// The slug of the pearl the gate falls back to when the app is opened
   /// without one (the seeded demo). Mirrors the old "no slug ⇒ demo" branch.

@@ -11,11 +11,8 @@ const env = require('../config/env');
 
 const PASSTHROUGH = ['draft', 'needsRef', 'remaining', 'gateTitle', 'gateNote'];
 
-function notFoundHandler(req, res, next) {
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'Route introuvable' });
-  }
-  next();
+function notFoundHandler(_req, res) {
+  res.status(404).json({ error: 'Route introuvable' });
 }
 
 // eslint-disable-next-line no-unused-vars
