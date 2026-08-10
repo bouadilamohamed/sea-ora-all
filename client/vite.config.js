@@ -2,14 +2,12 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
-/* The root .env is the single source for both halves of the project, so Vite
-   is told to read it from one level up rather than from client/. */
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, path.resolve(process.cwd(), '..'), '');
-  const apiTarget = `http://localhost:${env.PORT || 5000}`;
+  const env = loadEnv(mode, process.cwd(), '');
+  const apiTarget = `http://localhost:5000`;
 
   return {
-    envDir: path.resolve(process.cwd(), '..'),
+    envDir: process.cwd(),
     plugins: [react()],
     resolve: {
       alias: { '@': path.resolve(process.cwd(), 'src') }
